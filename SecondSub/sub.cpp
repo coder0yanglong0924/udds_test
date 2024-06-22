@@ -8,11 +8,24 @@
 
 #include <string>
 #include <iomanip>
+#include <mutex>
+#include <cmath>
 
 /* IDL_TypeSupport.h中包含所有依赖的头文件 */
 #include "IDL_TypeSupport.h"
 
 #include "compute_md5.hpp"
+#include "threadpool.h"
+
+ThreadPool thread_pool(1);
+std::mutex mutex;
+long global_counter = -1;
+long recieve_counter = 0;
+long file_len;
+
+bool first_flag = true;
+
+double MB = std::pow(2,20);
 
 /* UserDataTypeListener继承于DataReaderListener，
    需要重写其继承过来的方法on_data_available()，在其中进行数据监听读取操作 */
@@ -26,14 +39,12 @@ ComputeMD5 md5_computer;
 /* 重写继承过来的方法on_data_available()，在其中进行数据监听读取操作 */
 void UserDataTypeListener::on_data_available(DataReader* reader)
 {
-	std::cout << "on_data_available start\n";
+	// std::cout << "on_data_available start\n";
 	UserDataTypeDataReader *UserDataType_reader = NULL;
 	UserDataTypeSeq data_seq;
 	SampleInfoSeq info_seq;
 	ReturnCode_t retcode;
 	int i;
-
-
 
 	/* 利用reader，创建一个读取UserDataType类型的UserDataType_reader*/
 	UserDataType_reader = UserDataTypeDataReader::narrow(reader);
@@ -54,40 +65,34 @@ void UserDataTypeListener::on_data_available(DataReader* reader)
 		return;
 	}
 
-	std::cout << " data_seq.length() = " <<  data_seq.length() << std::endl;
+	// std::cout << " data_seq.length() = " <<  data_seq.length() << std::endl;
 
 	/* 打印数据 */
 	/* 建议1：避免在此进行复杂数据处理 */
 	/* 建议2：将数据传送到其他数据处理线程中进行处理 *
 	/* 建议3：假如数据结构中有string类型，用完后需手动释放 */
-	for (i = 0; i < data_seq.length(); ++i) {
-			UserDataTypeTypeSupport::print_data(&data_seq[i]);
+	for (i = 0; i < data_seq.length(); ++i) 
+	{
+			// UserDataTypeTypeSupport::print_data(&data_seq[i]);
 
-			std::string md5_str = data_seq[i].md5_str;
+			long send_counter = data_seq[i].send_counter;
 			std::string file_content = data_seq[i].file_content;
 
-			std::stringstream buffer;
-	        buffer << file_content;
-	        unsigned char md5_digest[MD5_DIGEST_LENGTH];
-  
-	        md5_computer.compute(buffer,md5_digest);
+			if(first_flag)
+			{
+				file_len = file_content.size();
+				first_flag = false;
+			}
 
-			std::ostringstream md5_str_ss;
-             for (int i = 0; i < MD5_DIGEST_LENGTH; ++i) {
-             md5_str_ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md5_digest[i]);
-             }
+			if(global_counter != send_counter)
+			{
+				global_counter = send_counter;
+				recieve_counter++;
+			}
 
-			 std::string file_md5 = md5_str_ss.str();
-			 std::cout << "file_md5 = " << file_md5 << std::endl;
 
-			 if(md5_str == file_md5)
-			 {
-				std::cout << "MD5 一致！！！\n";
-			 }
-			 else
-			 {
-				std::cout << "MD5 不一致！！！\n";
-			 }
+			// delete data_seq[i].md5_str;
+			// delete data_seq[i].file_content;
 	}	
 }
 
@@ -218,6 +223,30 @@ int main(int argc, char *argv[])
 	if (argc >= 3) {
 		sample_count = atoi(argv[2]);/* 发送sample_count次 */
 	}
+
+	thread_pool.enqueue([](long* global_counter,long* recieve_counter)
+	{
+		while(1)
+		{		
+			long last_counter = *global_counter;
+		    *recieve_counter = 0;
+		    sleep(1);
+		    long current_counter = *global_counter;
+		    long recieve = *recieve_counter;
+		    *recieve_counter = 0;
+
+			std::cout << "last_counter = " << last_counter << std::endl;
+			std::cout << "current_counter = " << current_counter << std::endl;
+			std::cout << "current_counter - last_counter = " << current_counter - last_counter << std::endl;
+			std::cout << "recieve = " << recieve << std::endl;
+
+            //(当前的包计数器 - 1秒前的包计数器) * 每个包的长度 * 8 / 2的20次方
+		    std::cout << "接收端吞吐量:" << static_cast<double>((current_counter - last_counter) * file_len * 8) / MB << "Mbytes" << std::endl;
+			//(1 - 接收端接受到的包的数量 / 发送端发送的包的数量) * 100
+		    std::cout << "接收端丢包率:" << (1 - static_cast<double>(recieve) / static_cast<double>((current_counter - last_counter))) * 100 << "%" << std::endl;
+		}
+	},&global_counter,&recieve_counter);
+
 	return subscriber_main(domain_id, sample_count);
 }
 

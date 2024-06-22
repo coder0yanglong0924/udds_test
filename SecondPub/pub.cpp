@@ -10,13 +10,20 @@
 #include <cstdlib>  
 #include <ctime>     
 #include <iomanip>
+#include <cmath>
 
 /* IDL_TypeSupport.h中包含所有依赖的头文件 */
 #include "IDL_TypeSupport.h"
 
 #include "compute_md5.hpp"
+#include "threadpool.h"
+
+ThreadPool threadpool(1);
 
 ComputeMD5 md5_computer;
+long send_counter = 0;
+
+const double MB = std::pow(2,20);
 
 // 生成单个随机字符
 char getRandomChar() {
@@ -160,13 +167,14 @@ extern "C" int publisher_main(int domainId, int sample_count,int string_lenth)
     //     return 1;
     // }
 
-	long send_counter = 0;
+	
 	std::string md5_str;
 	long time;
 	std::string file_content;
 
 	/* 7. 主循环 ，发送数据 */
-	for (count = 0; (sample_count == 0) || (count < sample_count); ++count) {
+	for (count = 0; (sample_count == 0) || (count < sample_count); ++count) 
+	{
 		/* 在此处修改数据 */
 //		instance->color = new char[100];		
 //		instance->x =  count;
@@ -183,17 +191,17 @@ extern "C" int publisher_main(int domainId, int sample_count,int string_lenth)
 	    md5_computer.compute(buffer,md5_digest);
 
 		std::ostringstream md5_str;
-    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i) {
-        md5_str << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md5_digest[i]);
-    }
+        for (int i = 0; i < MD5_DIGEST_LENGTH; ++i) {
+            md5_str << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md5_digest[i]);
+        }
 
          std::string tmp_str = md5_str.str();
-		 std::cout<< "md5 = " << tmp_str  << std::endl;
+		//  std::cout<< "md5 = " << tmp_str  << std::endl;
 
 
-		std::cout << "random string: " << randomString << std::endl;
+		// std::cout << "random string: " << randomString << std::endl;
 
-		std::cout << "send counter = " << send_counter << std::endl;
+		// std::cout << "send counter = " << send_counter << std::endl;
 
 		instance->send_counter = send_counter++;
 		instance->md5_str = const_cast<char *>(tmp_str.c_str());
@@ -203,11 +211,11 @@ extern "C" int publisher_main(int domainId, int sample_count,int string_lenth)
 		
 		retcode = UserDataType_writer->write(*instance, instance_handle);
 		if (retcode != RETCODE_OK) {
-			fprintf(stderr, "write error %d\n", retcode);
+			// fprintf(stderr, "write error %d\n", retcode);
 		}
-		else
-			fprintf(stderr, "%d : write  successfully . . \n", count);
-		 usleep(100);//沉睡1秒
+		// else
+			// fprintf(stderr, "%d : write  successfully . . \n", count);
+		//  usleep(200);//沉睡1秒		
 	}
 
 	/* 8. 删除数据样本 */
@@ -241,6 +249,23 @@ int main(int argc, char *argv[])
 	// if (argc >= 3) {
 	// 	sample_count = atoi(argv[2]); /* 发送sample_count次 */
 	// }
+
+	threadpool.enqueue([](long * send_counter,int string_lenth)
+		{
+			while(1)
+			{
+				long last_counter = *send_counter;
+				sleep(1);
+				long current_counter = *send_counter;
+
+				std::cout << "last_counter = " << last_counter << std::endl;
+			std::cout << "current_counter = " << current_counter << std::endl;
+			std::cout << "current_counter - last_counter = " << current_counter - last_counter << std::endl;
+
+                //(当前的包计数器 - 1秒前的包计数器) * 每个包的长度 * 8 / 2的20次方
+				std::cout << "发送端吞吐量：" << static_cast<double>((current_counter - last_counter) * string_lenth * 8) / MB << " Mbytes" << std::endl;
+			}
+		},&send_counter,string_lenth);
 
 	return publisher_main(domain_id, sample_count,string_lenth);
 }
