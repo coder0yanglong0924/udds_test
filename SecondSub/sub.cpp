@@ -89,10 +89,6 @@ void UserDataTypeListener::on_data_available(DataReader* reader)
 				global_counter = send_counter;
 				recieve_counter++;
 			}
-
-
-			// delete data_seq[i].md5_str;
-			// delete data_seq[i].file_content;
 	}	
 }
 
