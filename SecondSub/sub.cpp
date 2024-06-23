@@ -236,8 +236,8 @@ int main(int argc, char *argv[])
 			std::cout << "current_counter - last_counter = " << current_counter - last_counter << std::endl;
 			std::cout << "recieve = " << recieve << std::endl;
 
-            //(当前的包计数器 - 1秒前的包计数器) * 每个包的长度 * 8 / 2的20次方
-		    std::cout << "接收端吞吐量:" << static_cast<double>((current_counter - last_counter) * file_len * 8) / MB << "Mbytes" << std::endl;
+            //接收端接受到的包数量 * 每个包的长度 * 8 / 2的20次方
+		    std::cout << "接收端吞吐量:" << static_cast<double>(recieve_counter * file_len * 8) / MB << "Mbytes" << std::endl;
 			//(1 - 接收端接受到的包的数量 / 发送端发送的包的数量) * 100
 		    std::cout << "接收端丢包率:" << (1 - static_cast<double>(recieve) / static_cast<double>((current_counter - last_counter))) * 100 << "%" << std::endl;
 		}
