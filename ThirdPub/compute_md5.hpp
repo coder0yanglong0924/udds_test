@@ -4,8 +4,7 @@
 #include <string>
 #include <sstream>
 
-#pragma comment(lib, "ssleay32MDd.lib")
-#pragma comment(lib, "libeay32MDd.lib")
+#pragma once
 
 class ComputeMD5
 {

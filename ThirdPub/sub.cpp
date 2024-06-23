@@ -1,34 +1,35 @@
 /**********************************************************
 *****************订阅端程序subscriber.cpp*******************
 ***********************************************************/
-#include <stdio.h>
-#include <stdlib.h>
-#include <cstring>
-#include <unistd.h>
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <cstring>
+// #include <unistd.h>
 
-#include <string>
-#include <iomanip>
-#include <mutex>
-#include <cmath>
-#include <chrono>
+// #include <string>
+// #include <iomanip>
+// #include <cmath>
 
-/* IDL_TypeSupport.h中包含所有依赖的头文件 */
-#include "IDL_TypeSupport.h"
+// /* IDL_TypeSupport.h中包含所有依赖的头文件 */
+// #include "IDL_TypeSupport.h"
 
-#include "compute_md5.hpp"
-#include "threadpool.h"
-#include "pub.hpp"
+// #include "compute_md5.hpp"
+// #include "threadpool.h"
+#include "sub.hpp"
 #include "common.hpp"
 
 /* UserDataTypeListener继承于DataReaderListener，
    需要重写其继承过来的方法on_data_available()，在其中进行数据监听读取操作 */
-class UserDataTypeListener : public DataReaderListener {
+class UserDataTypeListener : public DataReaderListener
+{
 public:
-	virtual void on_data_available(DataReader* reader);
+	virtual void on_data_available(DataReader *reader);
 };
 
+
+
 /* 重写继承过来的方法on_data_available()，在其中进行数据监听读取操作 */
-void UserDataTypeListener::on_data_available(DataReader* reader)
+void UserDataTypeListener::on_data_available(DataReader *reader)
 {
 	// std::cout << "on_data_available start\n";
 	UserDataTypeDataReader *UserDataType_reader = NULL;
@@ -39,7 +40,8 @@ void UserDataTypeListener::on_data_available(DataReader* reader)
 
 	/* 利用reader，创建一个读取UserDataType类型的UserDataType_reader*/
 	UserDataType_reader = UserDataTypeDataReader::narrow(reader);
-	if (UserDataType_reader == NULL) {
+	if (UserDataType_reader == NULL)
+	{
 		fprintf(stderr, "DataReader narrow error\n");
 		return;
 	}
@@ -48,10 +50,12 @@ void UserDataTypeListener::on_data_available(DataReader* reader)
 	retcode = UserDataType_reader->read(
 		data_seq, info_seq, 10, 0, 0, 0);
 
-	if (retcode == RETCODE_NO_DATA) {
+	if (retcode == RETCODE_NO_DATA)
+	{
 		return;
 	}
-	else if (retcode != RETCODE_OK) {
+	else if (retcode != RETCODE_OK)
+	{
 		fprintf(stderr, "take error %d\n", retcode);
 		return;
 	}
@@ -62,52 +66,30 @@ void UserDataTypeListener::on_data_available(DataReader* reader)
 	/* 建议1：避免在此进行复杂数据处理 */
 	/* 建议2：将数据传送到其他数据处理线程中进行处理 *
 	/* 建议3：假如数据结构中有string类型，用完后需手动释放 */
-	for (i = 0; i < data_seq.length(); ++i) 
+	for (i = 0; i < data_seq.length(); ++i)
 	{
-		std::cout << "收到了！\n";
-			// UserDataTypeTypeSupport::print_data(&data_seq[i]);
+		// UserDataTypeTypeSupport::print_data(&data_seq[i]);
 
-			long send_counter = data_seq[i].send_counter;
-			std::string file_content = data_seq[i].file_content;
+		long send_counter = data_seq[i].send_counter;
+		std::string file_content = data_seq[i].file_content;
 
-			if(first_flag)
+		if (first_flag)
+		{
+			file_len = file_content.size();
+			first_flag = false;
+		}
+
+		if (global_counter != send_counter)
+		{
+			global_counter = send_counter;
+			recieve_counter++;
+
 			{
-				file_len = file_content.size();
-				first_flag = false;
-			}
-
-			if(global_counter != send_counter)
-			{
-				std::cout << "确实收到了！\n";
-				global_counter = send_counter;
-				recieve_counter++;
-
-				{
 				std::lock_guard<std::mutex> lock(send_mutex);
 				is_to_send = true;
-				communite_counter++;
-			    }
-
-				if(communite_counter == 0)
-				{
-					start = std::chrono::steady_clock::now();
-				}
-
-				if(communite_counter == 10000)
-				{
-					end_ = std::chrono::steady_clock::now();
-
-					auto duration = end_ - start;
-
-					auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-
-                    //端到端时延 / 循环次数 / 2
-					std::cout << "delay = " << ms / 10000 / 2 << "ms" << std::endl;
-
-					exit(0); //测试时延之后退出 防止被其他打印影响看不到上面一行输出
-				}
 			}
-	}	
+		}
+	}
 }
 
 /* 删除所有实体 */
@@ -117,15 +99,18 @@ static int subscriber_shutdown(
 	ReturnCode_t retcode;
 	int status = 0;
 
-	if (participant != NULL) {
+	if (participant != NULL)
+	{
 		retcode = participant->delete_contained_entities();
-		if (retcode != RETCODE_OK) {
+		if (retcode != RETCODE_OK)
+		{
 			fprintf(stderr, "delete_contained_entities error %d\n", retcode);
 			status = -1;
 		}
 
 		retcode = DomainParticipantFactory::get_instance()->delete_participant(participant);
-		if (retcode != RETCODE_OK) {
+		if (retcode != RETCODE_OK)
+		{
 			fprintf(stderr, "delete_participant error %d\n", retcode);
 			status = -1;
 		}
@@ -148,11 +133,12 @@ extern "C" int subscriber_main(int domainId, int sample_count)
 
 	/* 1. 创建一个participant，可以在此处定制participant的QoS */
 	/* 建议1：在程序启动后优先创建participant，进行资源初始化*/
-	/* 建议2：相同的domainId只创建一次participant，重复创建会占用大量资源 */ 
+	/* 建议2：相同的domainId只创建一次participant，重复创建会占用大量资源 */
 	participant = DomainParticipantFactory::get_instance()->create_participant(
-		domainId, PARTICIPANT_QOS_DEFAULT/* participant默认QoS */,
+		domainId, PARTICIPANT_QOS_DEFAULT /* participant默认QoS */,
 		NULL /* listener */, STATUS_MASK_NONE);
-	if (participant == NULL) {
+	if (participant == NULL)
+	{
 		fprintf(stderr, "create_participant error\n");
 		subscriber_shutdown(participant);
 		return -1;
@@ -162,9 +148,10 @@ extern "C" int subscriber_main(int domainId, int sample_count)
 	/* 建议1：在程序启动后优先创建subscriber*/
 	/* 建议2：一个participant下创建一个subscriber即可，无需重复创建 */
 	subscriber = participant->create_subscriber(
-		SUBSCRIBER_QOS_DEFAULT/* 默认QoS */,
+		SUBSCRIBER_QOS_DEFAULT /* 默认QoS */,
 		NULL /* listener */, STATUS_MASK_NONE);
-	if (subscriber == NULL) {
+	if (subscriber == NULL)
+	{
 		fprintf(stderr, "create_subscriber error\n");
 		subscriber_shutdown(participant);
 		return -1;
@@ -176,7 +163,8 @@ extern "C" int subscriber_main(int domainId, int sample_count)
 	type_name = UserDataTypeTypeSupport::get_type_name();
 	retcode = UserDataTypeTypeSupport::register_type(
 		participant, type_name);
-	if (retcode != RETCODE_OK) {
+	if (retcode != RETCODE_OK)
+	{
 		fprintf(stderr, "register_type error %d\n", retcode);
 		subscriber_shutdown(participant);
 		return -1;
@@ -186,10 +174,11 @@ extern "C" int subscriber_main(int domainId, int sample_count)
 	/* 建议1：在程序启动后优先创建Topic */
 	/* 建议2：一种主题名创建一次即可，无需重复创建 */
 	topic = participant->create_topic(
-		"Example UserDataType"/* 主题名，应与发布者主题名一致 */,
-		type_name, TOPIC_QOS_DEFAULT/* 默认QoS */, 
+		"Example UserDataType" /* 主题名，应与发布者主题名一致 */,
+		type_name, TOPIC_QOS_DEFAULT /* 默认QoS */,
 		NULL /* listener */, STATUS_MASK_NONE);
-	if (topic == NULL) {
+	if (topic == NULL)
+	{
 		fprintf(stderr, "create_topic error\n");
 		subscriber_shutdown(participant);
 		return -1;
@@ -204,9 +193,10 @@ extern "C" int subscriber_main(int domainId, int sample_count)
 	/* 建议3：在程序退出时再进行释放 */
 	/* 建议4：避免打算接收数据时创建datareader，接收数据后删除，该做法消耗资源，影响性能 */
 	reader = subscriber->create_datareader(
-		topic, DATAREADER_QOS_DEFAULT/* 默认QoS */,
-		reader_listener/* listener */, STATUS_MASK_ALL);
-	if (reader == NULL) {
+		topic, DATAREADER_QOS_DEFAULT /* 默认QoS */,
+		reader_listener /* listener */, STATUS_MASK_ALL);
+	if (reader == NULL)
+	{
 		fprintf(stderr, "create_datareader error\n");
 		subscriber_shutdown(participant);
 		delete reader_listener;
@@ -214,10 +204,10 @@ extern "C" int subscriber_main(int domainId, int sample_count)
 	}
 
 	/* 7. 主循环 ，监听器会默认调用on_data_available()监听数据 */
-	for (count = 0; (sample_count == 0) || (count < sample_count); ++count) {
-		//保持进程一直运行
+	for (count = 0; (sample_count == 0) || (count < sample_count); ++count)
+	{
+		// 保持进程一直运行
 	}
-
 
 	/* 8. 删除所有实体和监听器 */
 	status = subscriber_shutdown(participant);
@@ -225,24 +215,3 @@ extern "C" int subscriber_main(int domainId, int sample_count)
 
 	return status;
 }
-
-int main(int argc, char *argv[])
-{
-	int domain_id = 0;
-	int sample_count = 0; /* 无限循环 */
-
-	if (argc >= 2) {
-		domain_id = atoi(argv[1]);/* 发送至域domain_id */
-	}
-	if (argc >= 3) {
-		sample_count = atoi(argv[2]);/* 发送sample_count次 */
-	}
-
-	thread_pool.enqueue([](int domain_id,int sample_count,int string_lenth)
-	{
-		publisher_main(domain_id, sample_count,string_lenth);
-	},domain_id, sample_count,1);
-
-	return subscriber_main(domain_id, sample_count);
-}
-

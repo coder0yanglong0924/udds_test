@@ -17,7 +17,7 @@
 
 // #include "compute_md5.hpp"
 // #include "threadpool.h"
-#include "sub.hpp"
+#include "pub.hpp"
 #include "common.hpp"
 
 long send_counter = 0;
@@ -186,21 +186,21 @@ extern "C" int publisher_main(int domainId, int sample_count,int string_lenth)
 			}
 		}
 
-        // int length = 50;  // 指定随机字符串的长度
-        string randomString = generateRandomString(string_lenth);
+        // // int length = 50;  // 指定随机字符串的长度
+        // string randomString = generateRandomString(string_lenth);
 
-		std::stringstream buffer;
-	    buffer << randomString;
-	    unsigned char md5_digest[MD5_DIGEST_LENGTH];
+		// std::stringstream buffer;
+	    // buffer << randomString;
+	    // unsigned char md5_digest[MD5_DIGEST_LENGTH];
 
-	    md5_computer.compute(buffer,md5_digest);
+	    // md5_computer.compute(buffer,md5_digest);
 
-		std::ostringstream md5_str;
-        for (int i = 0; i < MD5_DIGEST_LENGTH; ++i) {
-            md5_str << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md5_digest[i]);
-        }
+		// std::ostringstream md5_str;
+        // for (int i = 0; i < MD5_DIGEST_LENGTH; ++i) {
+        //     md5_str << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md5_digest[i]);
+        // }
 
-         std::string tmp_str = md5_str.str();
+        //  std::string tmp_str = md5_str.str();
 		//  std::cout<< "md5 = " << tmp_str  << std::endl;
 
 
@@ -208,10 +208,10 @@ extern "C" int publisher_main(int domainId, int sample_count,int string_lenth)
 
 		// std::cout << "send counter = " << send_counter << std::endl;
 
-		instance->send_counter = send_counter++;
-		instance->md5_str = const_cast<char *>(tmp_str.c_str());
-		instance->time = 0;
-		instance->file_content =const_cast<char *>(randomString.c_str());
+		// instance->send_counter = send_counter++;
+		// instance->md5_str = const_cast<char *>(tmp_str.c_str());
+		// instance->time = 0;
+		// instance->file_content =const_cast<char *>(randomString.c_str());
 
 		
 		retcode = UserDataType_writer->write(*instance, instance_handle);
@@ -240,49 +240,49 @@ extern "C" int publisher_main(int domainId, int sample_count,int string_lenth)
 	return publisher_shutdown(participant);
 }
 
-int main(int argc, char *argv[])
-{
-	int string_lenth = 10;
-	if(argc > 1)
-	{
-		string_lenth = std::atoi(argv[1]);
-		if (string_lenth < 0 || string_lenth > 100) {
-        cerr << "Error:Input Integer must be between 0 and 100." << endl;
-        return 1;
-    }
-	}
+// int main(int argc, char *argv[])
+// {
+// 	int string_lenth = 10;
+// 	if(argc > 1)
+// 	{
+// 		string_lenth = std::atoi(argv[1]);
+// 		if (string_lenth < 0 || string_lenth > 100) {
+//         cerr << "Error:Input Integer must be between 0 and 100." << endl;
+//         return 1;
+//     }
+// 	}
 
-	int domain_id = 0;
-	int sample_count = 0; /* 无限循环 */
+// 	int domain_id = 0;
+// 	int sample_count = 0; /* 无限循环 */
 
-	if (argc > 2) {
-		sample_count = atoi(argv[2]);   /* 发送至域domain_id */
-	}
-	// if (argc >= 3) {
-	// 	sample_count = atoi(argv[2]); /* 发送sample_count次 */
-	// }
+// 	if (argc > 2) {
+// 		sample_count = atoi(argv[2]);   /* 发送至域domain_id */
+// 	}
+// 	// if (argc >= 3) {
+// 	// 	sample_count = atoi(argv[2]); /* 发送sample_count次 */
+// 	// }
 
-	// threadpool.enqueue([](long * send_counter,int string_lenth)
-	// 	{
-	// 		while(1)
-	// 		{
-	// 			long last_counter = *send_counter;
-	// 			sleep(1);
-	// 			long current_counter = *send_counter;
+// 	// threadpool.enqueue([](long * send_counter,int string_lenth)
+// 	// 	{
+// 	// 		while(1)
+// 	// 		{
+// 	// 			long last_counter = *send_counter;
+// 	// 			sleep(1);
+// 	// 			long current_counter = *send_counter;
 
-	// 			std::cout << "last_counter = " << last_counter << std::endl;
-	// 		std::cout << "current_counter = " << current_counter << std::endl;
-	// 		std::cout << "current_counter - last_counter = " << current_counter - last_counter << std::endl;
+// 	// 			std::cout << "last_counter = " << last_counter << std::endl;
+// 	// 		std::cout << "current_counter = " << current_counter << std::endl;
+// 	// 		std::cout << "current_counter - last_counter = " << current_counter - last_counter << std::endl;
 
-    //             //(当前的包计数器 - 1秒前的包计数器) * 每个包的长度 * 8 / 2的20次方
-	// 			std::cout << "发送端吞吐量：" << static_cast<double>((current_counter - last_counter) * string_lenth * 8) / MB << " Mbytes" << std::endl;
-	// 		}
-	// 	},&send_counter,string_lenth);
+//     //             //(当前的包计数器 - 1秒前的包计数器) * 每个包的长度 * 8 / 2的20次方
+// 	// 			std::cout << "发送端吞吐量：" << static_cast<double>((current_counter - last_counter) * string_lenth * 8) / MB << " Mbytes" << std::endl;
+// 	// 		}
+// 	// 	},&send_counter,string_lenth);
 
-	thread_pool.enqueue([](int domain_id,int sample_count)
-	{
-		subscriber_main(domain_id, sample_count);
-	},domain_id, sample_count);
+// 	thread_pool.enqueue([](int domain_id,int sample_count)
+// 	{
+// 		subscriber_main(domain_id, sample_count);
+// 	},domain_id, sample_count);
 
-	return publisher_main(domain_id, sample_count,string_lenth);
-}
+// 	return publisher_main(domain_id, sample_count,string_lenth);
+// }

@@ -1,11 +1,10 @@
+#pragma once
+
 #include <iostream>
 #include <fstream>
 #include <openssl/md5.h>
 #include <string>
 #include <sstream>
-
-#pragma comment(lib, "ssleay32MDd.lib")
-#pragma comment(lib, "libeay32MDd.lib")
 
 class ComputeMD5
 {
